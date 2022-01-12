@@ -1,0 +1,548 @@
+#Introduction
+
+install.packages("BB")
+library(BB)
+source("A1.R")
+?for
+??rpareto
+help(dir)
+save.image("misc.RDATA")
+30%%4 #produce 餘數
+ls() #叫出環境裡的東西們
+2/0
+log(-1)
+sum(1:10)
+
+install.packages("dplyr")
+library(dplyr)
+install.packages("explore")
+library(explore)
+
+
+# Exercise 1 
+install.packages(c("Hmisc", "gdata", "boot","xtable", "MASS", "moments", "snow", "mvtnorm"))
+ls() #check the environment
+dir() #list the content of my directory
+678%%9 == 0
+help(mean)
+??cut2 #Cut a Numeric Variable into Intervals
+log(-1)
+
+#1.2
+
+# Exercise 2 
+sum(Titanic)
+newTi <- as.data.frame(Titanic)
+sum(newTi$Freq[which(newTi$Age == "Adult")]) #return titanic total adults
+# "Which" can specify the condition for summation
+sum(newTi$Freq[which(newTi$Class == "Crew")])
+sum(newTi$Freq[which(newTi$Class == "3rd"& newTi$Age == "Child")])
+sum(newTi$Freq[which(newTi$Class == "2nd" & newTi$Age == "Adult" & newTi$Sex == "Female")])
+sum(newTi$Freq[which(newTi$Class == "1st" & newTi$Age == "Child" & newTi$Sex == "Male")])
+sum(newTi$Freq[which(newTi$Class == "Crew" & newTi$Survived == "Yes" & newTi$Sex == "Female")])
+sum(newTi$Freq[which(newTi$Class == "1st" & newTi$Survived == "Yes" & 
+                       newTi$Age == "Adult" & newTi$Sex == "Male")])
+
+help("prop.table")
+prop.table(Titanic)
+
+#Exercise 3
+
+#1
+a <- 1:50
+help(rev) # rev is the reversal of elements
+b <- rev(a)
+a <- (1:50)
+a <- seq.int(1,50)
+
+#2
+a <- rep(c(10,19,7), 15)
+b <- rep(c(1,2,5,6), 8)
+
+#3
+x <- seq.int(3.1, 6, 0.1)
+y <- log(x)*sin(x)
+
+#4
+mean(sample(0:100, 90))
+mean(sample(0:100, 90, replace = TRUE))
+#5 !!!
+a <- 1:20
+b <- 1:15
+sum(exp(a^(1/2))*log(a^5)/(5+cos(a)*sin(b)))
+
+!!
+a <- 1:20
+b <- 1:a
+#6
+x <- seq.int(3, 6, 0.1)
+y <- exp(x)*cos(x)
+
+
+# Exercise 4
+xVec <- sample(0:999, 1000)
+yVec <- sample(0:999, 1000)
+xVec2 <- xVec[-999]
+yVec2 <- yVec[-1]
+zVec <- yVec2-xVec2
+
+xVec3 <- xVec[-1]
+yVec3 <- yVec[-999]
+wVec <- sin(yVec3)/cos(xVec3)
+
+subX <- subset(xVec, xVec>=200)
+subX
+
+which(yVec >= 600) #which can find the index via logical expression
+
+#Exercise 5 Matrix
+
+A <- cbind(c(1,5,-2), c(1,2,-1), c(3,6,-3)) #creating customize matrix by column
+A
+A^3 == 0
+
+A[1,] #return first row of the matrix
+A[,1] #return first column
+newcol <- A[,1]+A[,3]
+cbind(A, newcol)
+
+A[3,] <- A[1,]+A[2,]
+A
+
+rowMeans(A)
+colMeans(A)
+
+#solving equation by matrices
+
+right <- rbind(c(2,1,3), c(1,1,1), c(1,3,2))
+left <- c(10,6,13)
+solve(right, left)
+
+
+#Exercise 6
+#1
+fun1 <- function(a, n) #a, n are the arguments
+{
+  sum(a^(1:n)/(1:n))
+}
+
+#2 !!
+fun2 <- function(x) 
+{
+  if (x<0) 
+    {print(x^2+2x+ abs(x))}
+  else if (x>=0 & x<2) 
+    {print(x^2+3+ log(1+x))}
+  else {print(x^2+4x-14)}
+}
+
+#Exercise 7
+v1 <- sample(1:20, 36, replace = TRUE)
+v1[-1]
+v1[2:36]
+v2 <- v1>5
+v2
+v2[v2 == "TRUE"] <- 1 #turn logical into dummy
+v2 #notice that FALSE is replaced automatically
+
+m1 <- matrix(data = v1, nrow = 6, ncol = 6)
+
+
+x = c(rnorm(10),NA,paste("d",1:16),NA,log(rnorm(10)))
+x
+which(is.na(x) == TRUE)
+#!!! 
+which(is.finite(x) == FALSE)
+subset(x, is.na(x) == FALSE & is.finite(x) == TRUE)
+
+#Exercise 8
+install.packages("AER")
+library(AER)
+dat <- GSOEP9402
+rm(GSOEP9402)
+
+class(dat) #it is a dataframe
+ncol(dat)
+nrow(dat)
+colnames(dat)
+library(dplyr)
+dat %>%
+  group_by(year) %>%
+  summarise(m = mean(income)) %>%
+  plot(dat$year, dat$m) %>%
+
+gendiff <- dat%>%
+  group_by(gender) %>%
+  summarise(mean(income))
+
+schdiff <- dat%>%
+  group_by(school) %>%
+  summarise(mean(income))
+
+employdiff <-  dat%>%
+  group_by(memployment) %>%
+  summarise(mean(income))
+
+#!!!
+try <- array(c(unlist(gendiff), unlist(schdiff), unlist(employdiff)), c(3,2,3))
+try             
+    
+# Exercise 9
+data(CASchools)
+dat1 <- CASchools
+rm(CASchools)
+colnames(dat1)
+reg1 <- lm(read ~ district+school+county+grades+students
+           +teachers+calworks+lunch+computer+expenditure+income+english, data = dat1)
+
+#!!
+reg2 <- lm(formula = y ~ x. lm(formula), read ~ district+school+county+grades+students
+           +teachers+calworks+lunch+computer+expenditure+income+english, data = dat1)
+
+#Exercise 10
+
+rpar <- function(n, xm, a) {
+  v <- runif(n)
+  xm / v^(1.0/a)
+}   
+
+#https://stackoverflow.com/questions/55913996/how-to-generate-random-data-from-pareto-density-function-in-r
+
+xm=1
+a=1
+lu <- rpar(200, 1,1)
+length(which(lu>=10)) #find how many values in lu is bigger or equal to 10
+
+replacement <- rlogis(20, 6.5, 0.5) #rlogis generates random deviates (random sample) from logis dist.
+lu[which(lu>=10)] <- replacement
+
+#2
+de <- log(rnorm(200,1,2))
+sum(is.na(de)) #count how many NA
+length(which(de<0))
+install.packages("truncnorm")
+library(truncnorm)
+trunrep <- rtruncnorm(93,0,1)
+de[which(is.na(de) == TRUE | de<0)] <- trunrep
+de
+
+#3
+orig <- runif(200, 0,1)
+dest <- runif(200, 0,1)
+#4,5
+hist <- matrix(runif(40000,0,1), ncol= 200, nrow= 200)
+dist <- matrix(runif(40000,0,1), ncol= 200, nrow= 200)
+help(matrix)
+
+#Experiment with vector + row
+b <- c(3,4,5)
+A+b[col(A)] #this produce addition by col
+A+b[row(A)] #this produce addition by row
+
+#6
+su = log(orig[row(dist)]+dest[col(dist)]+dist)/(1+log(orig[row(dist)]+dest[col(dist)]+dist))
+se = exp(orig[row(dist)]+dest[col(dist)]+hist)/(1+exp(orig[row(dist)]+dest[col(dist)]+hist))
+
+#7
+q <- function(w) {
+  w*(0.05+de[row(dist)])/(0.05+de[col(dist)])+lu[row(dist)]log(w)-lu[col(dist)]+(0.05+de[row(dist)])/(0.05+de[col(dist)])* #This is where I have problem
+    sum(su)-sum()
+  
+}
+
+#8
+set.seed(87271)
+gridw <- seq(9100, 55240, 50)
+rm(gridw)
+set.seed(92883)
+gridw <- seq(9100, 55240, length.out = 50)
+gridw
+
+#9 !!!
+
+# List and Dataframe
+li = list()
+mat1  = mat.or.vec(2,2) #mat.or.vec can get us a zero matrix with specified dimension
+mat1
+
+li[[1]] = mat1
+li[[2]] = Titanic
+li1 = list(x=mat1, y=Titanic) #So x is the name of the first matrix, y is the name of the second
+li1$x
+li1$y
+
+data=data.frame(x=rnorm(100),y=runif(100)) #x, y are variables in columns
+data
+
+data[,1] #first column
+data[1,] #first row
+
+data$x
+names(data) #return variable names
+attach(data) 
+
+#attach() function in R Language is used to access the variables present in the data framework without calling the data frame
+detach(data)
+y
+
+is.list(data)
+is.na(data)
+as.list()
+is.factor(data)
+is.finite(data) #not working for list
+a == b
+a >= b
+
+#Exercise 11
+is.array(c(1,2,3))
+is.vector(c(1,2,3))
+is.matrix(c(1,2,3))
+
+set.seed(23498)
+x0 <- rnorm(1000)
+table(x0>0) #table summarize the data by factors, in this case is logical.
+table(x0>1)
+table(x0>2)
+table(x0>0.5)
+table(x0<1)
+table(x0>-1)
+
+library(Hmisc)
+x1 <- cut2(runif(100,0,1), g=10) #cut2 divide elements into intervals, and g specify the numbers of quantile groups
+x1
+table(x1)
+levels(x1) #return the groups name
+levels(x1) = paste("q",1:10, sep = "") #turn the numerical group names to q1 - q10
+levels(x1)
+is.factor(x1) #TRUE
+table(x1) #check occurence of all the groups
+as.numeric(x1)
+levels(x1) #levels did not change with as.numeric
+rand <- rnorm(1000)
+
+which(rand >0)
+#what is x? prof. did not specify it
+w <- x[which(x>0)]
+w <- subset(x, subset = x>0)
+w <- x[x>0]
+
+#Basic function: 
+#abs(x) 
+#sqrt(x)
+ceiling(3.42)
+floor(3.42) 
+trunc(6.1) #get rid of .32342
+#round(x, digits =n) 
+round(3.475, digits=2) # 3.48, it rounds up to the second after decimal
+#signif(x, digits= n)
+signif(3.475, digits = 2) #3.5 it rounds up to the significant value we specify)
+#log(x)
+#exp(x)
+
+#strings
+#substr(x, start= n1, stop = n2)
+substr(x = "Iunderstand", 2,6) #"under" 
+#grep(pattern, x)
+
+#experiment with grep
+x=c("iunderunderstand", "iunderstand")
+grep("un", x)
+
+#sub(pattern, replacement, x)
+#strsplit(x, split)
+strsplit("abc", "") #return "a" "b" "c"
+
+paste("i","can", "do", "it", sep = "") #"icandoit", concentrate string
+toupper("kobe") #KOBE
+tolower("KOBE") #kobe
+
+#Exercise 12
+
+ufun = function(n) {
+  if(n == 0) {1}
+  else if (n==1) {1}
+  else if (n<0) {"Warning: n should be positive"}
+  else {ufun(n-1) + ufun(n-2)}
+}
+ufun(1)
+ufun(2)
+ufun(4)
+ufun(5)
+ufun(6)
+#!!!
+
+fun1 <- function(n) {
+  if (n >=1) {sum(c(1:n)^2)}
+  else {"Warning: n should be positive"}
+}
+
+fun1(400) #21413400
+
+fun2 <- function(n) {
+  n*(n-1)
+}
+sum(fun2(2:250)) # 5208250
+
+crra <- function(c, theta) {
+  if (theta >= 0.97 & theta <= 1.03) {
+    log(c^(1-theta))/(1-theta)
+  }
+  else (c^(1-theta))/(1-theta)
+}
+fact <- function(n) {  #find factorial of n
+  prod (1:n) #prod returns the product of all the elements
+}
+fact(10)
+
+#Exercise 13
+m = matrix(c(rnorm(20,0,10), rnorm(20,-1,10)), nrow = 20, ncol = 2)
+str(m)
+rowMeans(m)
+colMeans(m)
+
+#apply(X, MARGIN, FUN, ...), Margin = 1 applies over rows, margin = 2 applies over column, Margin = c(1,2) applies both
+
+apply(m, 1, mean)
+apply(m, 2, mean)
+apply(m, 1, median)
+apply(m, 2, median)
+allin <- function(x) {
+  c(mean= mean(x), median= median(x), min= min(x), max= max(x), standard_deviation= sd(x))
+}
+apply(m, 1, allin)
+apply(m, 2, allin)  
+  
+library(datasets)
+str(iris)
+library(dplyr)
+iris %>%
+  group_by(Species) %>%
+  summarise(mean = mean(Sepal.Length)) #return the mean length among species
+
+ungroup(iris)
+
+iris %>%
+  group_by(Species) %>%
+  summarise(log_and_sum = sum(log(Sepal.Width)))
+
+ungroup(iris)
+
+#Compare the speed of three commands
+y1 = NULL; for (i in 1:100) y1[i]=exp(i) 
+y2 = exp(1:100)
+y3 = sapply(1:100,exp)
+identical(y1, y2, y3) #TRUE
+
+ptm <- proc.time()
+y1 = NULL; for (i in 1:100) y1[i]=exp(i) 
+y1time <- proc.time()-ptm
+
+ptm <- proc.time()
+y2 = exp(1:100)
+y2time <- proc.time()-ptm
+
+ptm <- proc.time()
+y3 = sapply(1:100,exp)
+y3time <- proc.time()-ptm
+
+y1time #longest
+y2time #shortest
+y3time #same as y2
+
+#Exercise 14
+x <- rnorm(10000)
+summary(x)
+summary
+class(summary(x))
+quantile(x, prob = seq(0, 1, 0.1))
+quantile <- quantile(x, prob = seq(0, 1, 0.1))
+quantile[10] #return the 9th decile
+
+dsummary <- function(x) {
+  c(summary(x), quantile[2], quantile[10],standard_deviation = sd(x))
+}
+dsummary(x)
+help(dnorm)
+dnorm(0.5, 2, 0.25) #pdf, first argument is x, and then mean and sd
+pnorm(2.5, 2, 0.25) #cdf
+1/pnorm(0.95, 2, 0.25) #inverse 
+
+#Exercise 15
+V = rnorm(100, -2, 5)
+n = length(V) #100
+m <- (1/n)*sum(V) #-1.291514
+var <- (1/(n-1))*sum((V-m)^2)
+skew <- (1/n)*sum((V-m)^3)/(sqrt(var)^3) #skewness
+kurtosis <- ((1/n)*sum((V-m)^4)/(sqrt(var)^4))-3
+
+#Exercise 16
+set.seed(39429)
+fill <- c(rbeta(10000*10, shape1 = 2, shape2 = 1)) 
+which(fill < 0) #no negative values
+X <- matrix(fill, nrow = 1000, ncol = 10)
+View(X)
+sigma_sq = 0.5
+
+set.seed(30252)
+Beta <- rgamma(10, 2,1) 
+
+set.seed(99723)
+epsilon <- rnorm(1000)
+
+Y = X%*%Beta+sqrt(sigma_sq)*epsilon # %*% is for matrix multiplication
+Beta_hat <- solve(t(X)%*%X) %*% (t(X)%*%Y)   #solve() creates inverse
+Beta_hat #YES! Dimension is right: 10*1
+
+y_hat <- X %*% Beta_hat
+error_hat <- y_hat - Y
+density(error_hat)
+hist(error_hat, col = "grey", main = "Histogram of Error")
+plot(density(error_hat), type = "h", col = "grey", main = "line plot of kernal density")
+
+dim(X)
+var <- sum((error_hat^2))/(1000-10) #sample variance formula
+var
+V_beta <- var*(solve(t(X)%*%X)) 
+V_beta
+
+param <- cbind(Beta, sqrt(V_beta))
+param
+
+model <- lm(Y ~ X) 
+summary(model)
+param #there are small diff. between directly running regression and using matrix
+
+beta_vec <- as.vector(Beta_hat)
+
+newpar <- param[,-1] 
+newpar <- newpar[is.na(newpar) == FALSE]
+newpar
+
+lower_bound = beta_vec - 1.96*newpar
+upper_bound = beta_vec + 1.96*newpar
+ci <- cbind(lower_bound, upper_bound)
+ci #show 95% CI
+
+#redo using new sigma
+sigma2 <- 0.01
+Y = X%*%Beta+sqrt(sigma2)*epsilon # %*% is for matrix multiplication
+Beta_hat <- solve(t(X)%*%X) %*% (t(X)%*%Y)   #solve() creates inverse
+Beta_hat #YES! Dimension is right: 10*1
+
+y_hat <- X %*% Beta_hat
+error_hat <- y_hat - Y
+
+var <- sum((error_hat^2))/(1000-10) #sample variance formula
+V_beta <- var*(solve(t(X)%*%X)) 
+
+param <- cbind(Beta, sqrt(V_beta))
+
+beta_vec <- as.vector(Beta_hat)
+
+newpar <- param[,-1] 
+newpar <- newpar[is.na(newpar) == FALSE]
+
+lower_bound = beta_vec - 1.96*newpar
+upper_bound = beta_vec + 1.96*newpar
+new_ci <- cbind(lower_bound, upper_bound)
+new_ci
