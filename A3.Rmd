@@ -1,0 +1,830 @@
+---
+title: "A3"
+author: "Yuan Tien"
+date: "3/3/2022"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(data.table)
+
+getwd()
+setwd("/Users/yuantien/Desktop/R/613/Data")
+list.files()
+
+datstu <- fread("datstu_v2.csv")
+datsch <- fread("datsss.csv")
+geo    <- fread("datjss.csv")
+datsss <- fread("datsss.csv")
+
+```
+
+Exercise 1  
+1.1
+```{r}
+programs <- datstu[,11:16] #select all progran choices from the dataset
+programs <- unlist(programs, use.names = FALSE) #turn programs from choice 1 to choice 6 into a vector
+
+uniprog <- unique(programs)
+
+Num <- data.frame(no._student = nrow(datstu), 
+                  no._school  = length(unique(datsch$schoolcode)),
+                  no._program = length(uniprog) )
+Num
+```
+1.2
+unique school - program dyads
+Can I just paste school choice with corresponding dyads and find the unique ones?
+```{r}
+matchoice1 <- datstu%>%
+  select(schoolcode1, choicepgm1)
+
+matchoice2 <- datstu%>%
+  select(schoolcode2, choicepgm2)
+
+matchoice3 <- datstu%>%
+  select(schoolcode3, choicepgm3)
+
+matchoice4 <- datstu%>%
+  select(schoolcode4, choicepgm4)
+
+matchoice5 <- datstu%>%
+  select(schoolcode5, choicepgm5)
+
+matchoice6 <- datstu%>%
+  select(schoolcode6, choicepgm6)
+
+#apropos() 
+
+allchoice <- do.call("rbind", list(matchoice1, matchoice2, matchoice3, matchoice4, matchoice5, matchoice6, use.names=FALSE))
+
+choice <- unique(allchoice)
+nrow(choice) #3086 unique school - programs dyads
+```
+
+1.3 
+apply to schools near home
+
+```{r}
+schdis <- datsch %>%
+  select(schoolcode, sssdistrict)
+schdis <- schdis[!duplicated(schdis$schoolcode),] #This is a list of schools with corresponding district
+
+library(dplyr)
+
+x <- datstu
+schdis <- rename(schdis, schoolcode1 = schoolcode)
+  x <- x %>%
+    left_join(schdis, by = "schoolcode1")
+  schdis <- rename(schdis, schoolcode2 = schoolcode1)
+  x <- x %>%
+    left_join(schdis, by = "schoolcode2")
+  schdis <- rename(schdis, schoolcode3 = schoolcode2)
+  x <- x %>%
+    left_join(schdis, by = "schoolcode3")
+  schdis <- rename(schdis, schoolcode4 = schoolcode3)
+  x <- x %>%
+    left_join(schdis, by = "schoolcode4")
+  schdis <- rename(schdis, schoolcode5 = schoolcode4)
+  x <- x %>%
+    left_join(schdis, by = "schoolcode5")  
+  schdis <- rename(schdis, schoolcode6 = schoolcode5)
+  x <- x %>%
+    left_join(schdis, by = "schoolcode6")  
+  #by this I create a lot of columns with district name. Then I will determine if jssdistrict equals these columns
+
+  schdis <- rename(schdis, schoolcode = schoolcode6)
+  
+x$applyhome_1 <- ifelse(x[,17] == x [,19], 1, 0)
+x$applyhome_2 <- ifelse(x[,17] == x [,20], 1, 0)
+x$applyhome_3 <- ifelse(x[,17] == x [,21], 1, 0)
+x$applyhome_4 <- ifelse(x[,17] == x [,22], 1, 0)
+x$applyhome_5 <- ifelse(x[,17] == x [,23], 1, 0)
+x$applyhome_6 <- ifelse(x[,17] == x [,24], 1, 0)
+
+x <- x %>%
+  mutate(applyhome_total = applyhome_1 + applyhome_2 +applyhome_3 + applyhome_4 + applyhome_5 + applyhome_6) %>%
+  count(applyhome_total)
+applyhome_at_least_one <- sum( x[2:7,2] )
+applyhome_at_least_one #250806
+
+```
+
+1.4
+
+```{r}
+
+#I calculate the number of schools admitted students by their rank. For example, to calculate how many students Duke admitted, I add up the number of students get admitted when Duke is their 1st - 6th choice.
+
+try<- datstu %>%
+  select(c(5:10,18)) 
+
+admit_fun <- function (try) { 
+try$admit_1 <- ifelse(try$rankplace == 1, try$schoolcode1, 0)
+ch1 <- count(try, admin = admit_1) #first choices
+
+try$admit_2 <- ifelse(try$rankplace == 2, try$schoolcode1, 0)
+ch2 <- count(try, admin = admit_2) 
+
+try$admit_3 <- ifelse(try$rankplace == 3, try$schoolcode1, 0)
+ch3 <- count(try, admin = admit_3) 
+
+try$admit_4 <- ifelse(try$rankplace == 4, try$schoolcode1, 0)
+ch4 <- count(try, admin = admit_4) 
+
+try$admit_5 <- ifelse(try$rankplace == 5, try$schoolcode1, 0)
+ch5 <- count(try, admin = admit_5) 
+
+try$admit_6 <- ifelse(try$rankplace == 6, try$schoolcode1, 0)
+ch6 <- count(try, admin = admit_6) 
+
+school_admin <- bind_rows(ch1, ch2, ch3, ch4, ch5, ch6) %>%
+  group_by(admin) %>%
+  summarise( sum(n) )
+
+colnames(school_admin) <- c("schoolcode", "admitted number of students")
+
+schoolist <- datsch %>%
+  filter(duplicated(schoolcode) == FALSE) %>%
+  select(schoolcode, schoolname) %>%
+  left_join(school_admin, by = "schoolcode")
+
+return(schoolist)
+}
+
+admit_fun(try)
+```
+
+1.5
+To calculate the cutoff of each senior high schools and later on the quality of senior high, I will first create a column showing the student's admitted school.
+
+I use my "try" dataframe I created earlier to do this. The try dataframe has six separate columns (for 6 school choices) showing each student's admitted school's school code. If Mike is admitted to his 3rd dream school of schoolcode 98021, the admit_3 column will show "98021" while admit_1, admit_2....will show 0.
+
+```{r}
+adschool_fun <- function (try) { 
+try$admit_1 <- ifelse(try$rankplace == 1, try$schoolcode1, 0)
+try$admit_2 <- ifelse(try$rankplace == 2, try$schoolcode1, 0)
+try$admit_3 <- ifelse(try$rankplace == 3, try$schoolcode1, 0)
+try$admit_4 <- ifelse(try$rankplace == 4, try$schoolcode1, 0)
+try$admit_5 <- ifelse(try$rankplace == 5, try$schoolcode1, 0)
+try$admit_6 <- ifelse(try$rankplace == 6, try$schoolcode1, 0)
+return(try)
+}
+try <- adschool_fun(try)
+
+admit <- try[,8:13] #select admit_1 to admit_6
+admit$admit_school = rowSums(admit) 
+#Since columns outside of student's admitted school's rank will show 0, by adding all the columns I get the school they are admitted to
+
+datstu_ad <- cbind(datstu, admit_school = admit$admit_school)
+
+datstu_ad %>%
+  group_by(admit_school) %>%
+  summarise(min(score))  #Note that school "0" indicates a pool of people who didn't get admitted to any senior high schools 
+```
+1.6
+
+```{r}
+datstu_ad %>%
+  group_by(admit_school) %>%
+  summarise( mean(score) )
+
+```
+
+Exercise 2 - Data
+
+During 1.2, I have already compiled a school-program level dataset named "choice". I will continue to use this. 
+```{r}
+choice <- rename(choice, schoolcode = schoolcode1, program = choicepgm1)
+
+#Since the professor may want school-program level answer, I have a school-program version: 
+
+#Calculate the school program level
+try2 <- datstu %>%
+  mutate(schpro1 = paste0(schoolcode1, choicepgm1), schpro2 = paste0(schoolcode2, choicepgm2), 
+         schpro3 = paste0(schoolcode3, choicepgm3), schpro4 = paste0(schoolcode4, choicepgm4),
+         schpro5 = paste0(schoolcode5, choicepgm5), schpro6 = paste0(schoolcode6, choicepgm6)) %>%
+  select(2:4, 18:24) #just select useful column
+
+try2$admit1 <- ifelse(try2$rankplace == 1, try2$schpro1, NA)
+
+try2$admit2 <- ifelse(try2$rankplace == 2, try2$schpro2, NA)
+
+try2$admit3 <- ifelse(try2$rankplace == 3, try2$schpro3, NA)
+
+try2$admit4 <- ifelse(try2$rankplace == 4, try2$schpro4, NA)
+ 
+try2$admit5 <- ifelse(try2$rankplace == 5, try2$schpro5, NA)
+
+try2$admit6 <- ifelse(try2$rankplace == 6, try2$schpro6, NA)
+
+try2 <- try2 %>%
+  unite("admit", admit1, admit2, admit3, admit4, admit5, admit6, na.rm=TRUE, remove = FALSE) #use unite to past multiple columns 
+
+schpro_admit <- as.data.frame( table(try2$admit) ) 
+schpro_admit[1,1] <- as.factor("no school or program")
+
+colnames(schpro_admit) <- c("admit", "count")
+schpro_admit
+#this shows how many people are admitted to each school - program
+```
+
+
+```{r}
+schpro_cutqua <- try2 %>%
+  group_by(admit) %>%
+  summarise(cutoff = min(score), quality = mean(score) )
+
+schpro_admit <- schpro_admit %>%
+  full_join(schpro_cutqua, by = "admit")
+
+choice2 <- choice %>%
+  mutate(admit = paste0(schoolcode, program))
+
+SP <- choice2 %>%
+  left_join(schdis, by = "schoolcode") %>%
+  left_join(datsss, by = "sssdistrict") %>%
+  left_join(schpro_admit, by = "admit") 
+
+SP <- rename(SP, sch_n_pgm = admit) 
+
+#This SP dataset contains cutoff, quality, and size of school-program. If a school-program has NA in cutoff, quality, or size, it means no student is admitted.  
+```
+
+Exercise 3 Distance
+
+I already compile a "datstu_ad" dataframe that contains the school each student gets admitted to. 
+```{r}
+datstu_ad <- rename(datstu_ad, schoolcode = admit_school)
+
+jss <- fread("datjss.csv") #I am reloading thess again to make sure I didn't change sth. 
+sss <- fread("datsss.csv")
+
+sss <- sss[!duplicated(sss$schoolcode),] #filter out duplicate rows
+
+jss <- jss %>%
+  rename(jsslong = point_x, jsslat = point_y)
+
+dis_stu <- datstu_ad %>%
+  left_join(sss, by = "schoolcode") %>%      #information on admitted senior high school
+  left_join(jss, by = "jssdistrict") %>%     #info on junior high school
+  select(ssslong, jsslong, jsslat, ssslat) #select useful columns
+
+dis_stu <- dis_stu %>%
+  mutate(dist = sqrt( (69.172*(ssslong - jsslong) * cos(jsslat/57.3)) ^2  +  (69.172 * (ssslat - jsslat))^2 ))
+
+#the dist column shows the computed distance
+
+```
+
+Exercise 4
+
+```{r}
+try3 <- datstu 
+try3$scode_rev1 <- substr(try3$schoolcode1, 1, 3) 
+try3$scode_rev2 <- substr(try3$schoolcode2, 1, 3) 
+try3$scode_rev3 <- substr(try3$schoolcode3, 1, 3) 
+try3$scode_rev4 <- substr(try3$schoolcode4, 1, 3) 
+try3$scode_rev5 <- substr(try3$schoolcode5, 1, 3)
+try3$scode_rev6 <- substr(try3$schoolcode6, 1, 3) 
+
+#I initially want to do it in a pipeline but it returns "unused argument" all the time
+
+arts <- c("General Arts", "Visual Arts")
+economics <- c("Business", "Home Economics")
+science <- "General Science"
+
+try3 <- within(try3, {
+  pgm_rev1 = "others"
+  pgm_rev1[choicepgm1 %in% arts] = "arts"
+  pgm_rev1[choicepgm1 %in% economics] = "economics"
+  pgm_rev1[choicepgm1 %in% science] = "science"
+  pgm_rev1[is.na(pgm_rev1) == T] = "others"
+  
+  pgm_rev2 = "others"
+  pgm_rev2[choicepgm2 %in% arts] = "arts"
+  pgm_rev2[choicepgm2 %in% economics] = "economics"
+  pgm_rev2[choicepgm2 %in% science] = "science"
+  pgm_rev2[is.na(pgm_rev2) == T] = "others"
+  
+  pgm_rev3 = "others"
+  pgm_rev3[choicepgm3 %in% arts] = "arts"
+  pgm_rev3[choicepgm3 %in% economics] = "economics"
+  pgm_rev3[choicepgm3 %in% science] = "science"
+  pgm_rev3[is.na(pgm_rev3) == T] = "others"
+  
+  pgm_rev4 = "others"
+  pgm_rev4[choicepgm4 %in% arts] = "arts"
+  pgm_rev4[choicepgm4 %in% economics] = "economics"
+  pgm_rev4[choicepgm4 %in% science] = "science"
+  pgm_rev4[is.na(pgm_rev4) == T] = "others"
+  
+  pgm_rev5 = "others"
+  pgm_rev5[choicepgm5 %in% arts] = "arts"
+  pgm_rev5[choicepgm5 %in% economics] = "economics"
+  pgm_rev5[choicepgm5 %in% science] = "science"
+  pgm_rev5[is.na(pgm_rev5) == T] = "others"
+  
+  pgm_rev6 = "others"
+  pgm_rev6[choicepgm6 %in% arts] = "arts"
+  pgm_rev6[choicepgm6 %in% economics] = "economics"
+  pgm_rev6[choicepgm6 %in% science] = "science"
+  pgm_rev6[is.na(pgm_rev6) == T] = "others"
+})
+
+#Be caution that if a student does not submit a choice (choice = NA) , it will be considered "others" 
+```
+
+Choice variable 
+```{r}
+try3 <- try3 %>%
+  mutate(choice_rev1 = paste0(scode_rev1, pgm_rev1), choice_rev2 = paste0(scode_rev2, pgm_rev2), 
+         choice_rev3 = paste0(scode_rev3, pgm_rev3), choice_rev4 = paste0(scode_rev4, pgm_rev4),
+         choice_rev5 = paste0(scode_rev5, pgm_rev5), choice_rev6 = paste0(scode_rev6, pgm_rev6))
+```
+
+Compute new quality and cutoff
+```{r}
+
+cutqua <- function(x) {
+x$admit1 <- ifelse(x$rankplace == 1, x$choice_rev1, NA)
+x$admit2 <- ifelse(x$rankplace == 2, x$choice_rev2, NA)
+x$admit3 <- ifelse(x$rankplace == 3, x$choice_rev3, NA)
+x$admit4 <- ifelse(x$rankplace == 4, x$choice_rev4, NA)
+x$admit5 <- ifelse(x$rankplace == 5, x$choice_rev5, NA)
+x$admit6 <- ifelse(x$rankplace == 6, x$choice_rev6, NA)
+
+x <- x %>%
+  unite("admit", admit1, admit2, admit3, admit4, admit5, admit6, na.rm=TRUE, remove = FALSE)
+
+x %>%
+  group_by(admit) %>%
+  summarise(cutoff = min(score), quality = mean(score) )
+
+}
+
+new_cutqua <- cutqua(try3) #This will show the cutoff and quality of each newly compiled school - program category
+```
+
+Consider the 20,000 highest score students
+
+```{r}
+try4 <- try3[order(-score), ] #negative sign means descending
+try4 <- try4[1:20000,]
+```
+
+Exercise 5
+
+Note that the first choice is choice_rev1
+First choice is a catego
+```{r}
+length(unique(try4$choice_rev1))
+# Dependent Variable: choice_rev1, categorical, 246 choices
+# Independent Variable: test score, continuous
+# Since we are dealing with student characteristic and their preference of school-program, we should use multinomial logit. 
+
+try5<- try4
+
+try5$choice_rev1 <- as.numeric( as.factor(try5$choice_rev1) )
+
+name_list <- try4 %>%      #this list stores the factor number and corresponding school-pgm name
+  select(choice_rev1) %>%
+  cbind(try5$choice_rev1)
+
+like_fun1 <- function(par, try5) {
+  choice_rev1 = try5$choice_rev1
+  score = try5$score
+
+  n_i = nrow(try5) #should be 20,000 students
+  n_j = length(unique(try5$choice_rev1)) #246 choices
+  out = mat.or.vec( n_i,n_j )
+  #This out should eventually contain the imagined utility for every individual and their potential choice 
+  
+  #remember to omit a choice as the reference choice
+  n_jref = n_j - 1 
+  
+  #Since restrict Beta_omitted_choice = 0 means the choice essentially has no effect on utility, I can set the utility of that choice to 0 to represent restriction
+  out[,1] = 0
+  
+  #parameter set for every right-hand side variables and intercept
+  par_set1 = par[1:n_jref]  
+  par_set2 = par[ (n_jref+1) : (2*n_jref) ]
+
+  for (j in 2:n_j) { #remember out[,1] should be 0, so we should start from the second column 
+    out[,j] = par_set1[(j-1)] + par_set2[j-1] * score 
+  }
+  
+  #transform the utility to form logit probility
+  prob = exp(out)
+  prob = sweep(prob, MARGIN=1, FUN="/", STATS=rowSums(prob)) 
+  #margin = 1 means operate by row. This sweeps function means we do every exp(XiBj)/ (exp(XiBj) + exp(XiBe) +exp(XiBk)...) by row
+
+  prob_choice = NULL
+for (i in 1:n_i){
+    prob_choice[i] = prob[i, choice_rev1[i] ] #prob_choice as the probability of individual i chooses his/her actual choice
+  }
+  prob_choice[prob_choice >0.999999] = 0.999999
+  prob_choice[prob_choice <0.000001] = 0.000001 # To prevent prob from going to negative or above one
+  like = sum( log(prob_choice) )
+  return(- like) #remember I already has a minus here
+}
+
+
+(246 -1)*2 # = 490 parameters to estimate
+
+# since it takes forever to optimize once, I choose to store the result of my first attempt 
+searchv = runif(490, -1, 1) 
+
+result  = optim(searchv, fn = like_fun1, method = "BFGS", 
+                  control = list(trace = 6, maxit = 3000),
+                  try5 = try5) #leave out "par" because "par" is what we want to estimate
+first_estimate = result$par
+first_like = result$value #274486.6
+
+result  = optim(searchv, fn = like_fun1, method = "BFGS", 
+                  control = list(trace = 6, maxit = 3000),
+                  try5 = try5, hessian = TRUE)
+second_estimate = result$par
+second_like = result$value
+
+#final  value 261845.372652 
+#the second attempts takes more than two hours so I stop
+```
+
+```{r}
+#Because simply choosing random search value takes too long, I choose to use multinom to guide me through searching value
+options(scipen=999) #prevent scientific notations
+library(nnet)
+
+pack_res = multinom(choice_rev1 ~ score, data= try5)
+
+pack_coef <- as.data.frame( coef(pack_res) )
+  
+pack_search <- c(pack_coef$`(Intercept)`, pack_coef$score)
+# this vector list the 245 intercept estimates and then 245 choice:score estimates
+```
+```{r}
+
+result3  = optim(pack_search, fn = like_fun1, method = "BFGS", 
+                  control = list(trace = 6, maxit = 3000),
+                  try5 = try5)
+result3$value #likelihood: - 73620.09
+multi_param <- result3$par
+multi_param
+
+```
+
+
+```{r}
+#Marginal effect
+
+# theory: p_ij(Beta_j - sum (p_il*Beta_l) )
+# use the truncated likelihood function to compute probability
+
+out_fun <- function(par, try5) {
+  choice_rev1 = try5$choice_rev1
+  score = try5$score
+
+  n_i = nrow(try5) #should be 20,000 students
+  n_j = length(unique(try5$choice_rev1)) #246 choices
+  out = mat.or.vec( n_i,n_j )
+
+  n_jref = n_j - 1 
+ 
+  out[,1] = 0
+  
+  par_set1 = par[1:n_jref]  
+  par_set2 = par[ (n_jref+1) : (2*n_jref) ]
+
+  for (j in 2:n_j) { 
+    out[,j] = par_set1[(j-1)] + par_set2[j-1] * score 
+  }
+  return(out)
+}  
+
+out <- out_fun(multi_param, try5)
+prob = exp(out)
+prob = sweep(prob, MARGIN=1, FUN="/", STATS=rowSums(prob)) 
+prob = as.data.frame.matrix(prob)
+
+for (i in 1:20000) {prob$prob_choice[i] = prob[i, try5$choice_rev1[i] ]}
+
+for (h in 1:20000)  {prob$beta_j[h] = multi_param[ (try5$choice_rev1[h]+ 245) ]}
+
+```
+
+
+```{r}
+
+multprob <- prob[,-1] #since the first choice should be the reference group, now we have 245 columns instead of 246
+
+score_param <- multi_param[246:490]
+score_param <- as.matrix(score_param)  #to make its dimension: (j-1)*1
+
+multprob <- multprob %>%
+  mutate(B_i_bar = 0)
+
+for (i in 1: length(multprob) ) {
+  multprob$B_i_bar[i] <- sum( as.matrix( multprob[i,1:245] ) %*% score_param)  
+}
+
+multprob <- multprob %>%
+  mutate(marginal = prob_choice * (beta_j - B_i_bar) ) 
+
+multprob$marginal #This is the marginal effect
+
+```
+
+#Exercise 6
+Conditional Logit
+
+dependent variable: first choice
+independent variable: school quality
+*Use conditional logit
+```{r}
+#In conditional logit, the beta estimate does not vary by choice. Hence, I only need to estimate two coefficients: intercept and school quality
+
+colnames(name_list) <- c("first_choice_name", "choice_rev1") 
+colnames(new_cutqua) <- c("first_choice_name", "cutoff", "quality") 
+name_list <- name_list %>%
+  left_join(new_cutqua, by = "first_choice_name")
+
+try5 <- cbind(try5, name_list$quality)
+try5 <- rename(try5, quality = V2) #finally put school quality in the dataset
+
+cond_choice_rev1 <- try5$choice_rev1
+cond_quality     <- try5$quality
+
+Con_fun1 <- function(par, cond_choice_rev1, cond_quality) {
+  choice_rev1 = cond_choice_rev1
+  quality = cond_quality 
+
+  n_i = nrow(data) 
+  n_j = length(unique( choice_rev1 )) #246 choices
+  out = mat.or.vec( n_i,n_j )
+  #This out should eventually contain the imagined utility for every individual and their potential choice 
+  
+  #remember to omit a choice as the reference choice
+  n_jref = n_j - 1 
+  
+  #what is the restriction for conditional logit?
+  out[,1] = 0
+  
+  #parameter set for every right-hand side variables and intercept
+  
+  intercept = par[1:n_jref]  #intercept
+  par_qua = par[ (n_jref+1) ] #the score coefficient. In conditional logit, the Beta does not vary by choice 
+
+  for (i in 1:n_i) {
+    out[i,] = par_qua * quality[i] #first deal with quality effect
+  }
+
+  for (j in 2:n_j) {
+    out[,j] = out[,j] + intercept[ (j-1) ] #then I add corresponding intercept to each column
+  }
+
+  prob = exp(out)
+  prob = sweep(prob, MARGIN=1, FUN="/", STATS=rowSums(prob)) 
+
+  prob_choice = NULL
+for (i in 1:n_i){
+    prob_choice[i] = prob[i, choice_rev1[i] ] #prob_choice as the probability of individual i chooses his/her actual choice
+}
+
+  prob_choice[prob_choice >0.999999] = 0.999999
+  prob_choice[prob_choice <0.000001] = 0.000001 
+
+  like = sum( log(prob_choice) , na.rm = T) #When I test it I found out two numbers are NA so initially I cannot sum
+  return(- like) #remember I already has a minus here
+}
+
+#test this function
+x <- rnorm(246) # (246-1) +1 coefficients to estimate 
+contry <- Con_fun1(x, try5) 
+
+```
+
+```{r}
+#find ideal searching values by using package
+
+library(mlogit)
+library(tidyr)
+
+test_dat <- try5 %>%
+  mutate(first_choice = choice_rev1) %>% #keep a copy of choice variable
+  pivot_wider(names_from = choice_rev1, values_from = quality, values_fill = 0)
+
+#transform my data to have every choice as a column
+
+for (i in 37: 282) {
+  test_dat[,i] = max(test_dat[,i]) 
+} 
+
+for (r in 37:282){
+  colnames(test_dat)[r]= paste0("quality_", colnames( test_dat[,r] ))
+}
+
+mloDat = mlogit.data(test_dat, varying = 37:282, shape = "wide", sep = '_',
+                               choice = "first_choice")
+
+#pack_cond <- mlogit(first_choice ~  quality , data = mloDat)
+
+#Since my computer cannot handle this operation, below are codes that I think should work but I cannot run them without the mlogit result
+
+#pack_condcf <- as.data.frame( coef(pack_cond) )
+#cond_search <- c(pack_coef$`(Intercept)`, pack_coef$quality)
+
+```
+
+
+```{r}
+#This takes forever to run. 
+
+#cond_result  = optim(cond_search, fn = Con_fun1, method = "BFGS", 
+#                  control = list(trace = 6, maxit = 3000),
+#                  try5 = try5)
+#cond_par <- cond_result$par
+```
+
+Here I use a subsample to complete optimization
+```{r}
+# samp_try5 <- try5[ sample( nrow(try5), 100) , ] #sample 100 rows at random 
+
+# searchv <- runif(length(unique( samp_try5$choice_rev1) ), -1, 1) #num of unique choice -1 + 1 (quality coefficient) 
+# samp_result  = optim(searchv, fn = Con_fun1, method = "BFGS", 
+#                  control = list(trace = 6, maxit = 3000),
+#                  cond_choice_rev1 = cond_choice_rev1, cond_quality = cond_quality, 
+#                  )
+# My attempt fails because of this error: Error in matrix(0, nr, nc) : non-numeric matrix extent
+```
+
+
+Conditional logit marginal effect
+Since I cannot produce the result in previous operation, here is my plan to produce marginal effect. 
+```{r}
+#Marginal effect
+
+# theory: p_ij(delta_ijk - p_ik)* Beta
+Conmar_fun <- function(par, try5) {
+  choice_rev1 = try5$choice_rev1
+  quality = try5$quality
+
+  n_i = nrow(try5) 
+  n_j = length(unique( try5$choice_rev1) ) #246 choices
+  out = mat.or.vec( n_i,n_j )
+
+  n_jref = n_j - 1 
+  
+  out[,1] = 0
+  
+  intercept = par[1:n_jref]  #intercept
+  par_qua = par[ (n_jref+1) ] #the score coefficient. In conditional logit, the Beta does not vary by choice 
+
+  for (i in 1:n_i) {
+    out[i,] = par_qua * quality[i] #first deal with quality effect
+  }
+
+  for (j in 2:n_j) {
+    out[,j] = out[,j] + intercept[ (j-1) ] #then I add corresponding intercept to each column
+  }
+  prob = exp(out)
+  prob = sweep(prob, MARGIN=1, FUN="/", STATS=rowSums(prob)) 
+  prob = as.data.frame.matrix(prob)
+
+  for (i in 1:nrow(try5))  {prob$prob_choice[i] = prob[i, try5$choice_rev1[i] ]} #This is my P_ij
+  #now I have to compute (delta_ijk - pik), this is a vector
+  #pik represents the probability in one row
+  #delta_ijk = 1 if that is prob_choice, if alternative, than 0  
+  
+  pik = prob[,- ncol(prob)] #because the last column is the prob_choice I just created
+  delta_ijk = pik #just copy this prob matrix (dimension: n_i*n_j)
+
+  for (i in 1 : nrow(try5)) {
+  delta_ijk[i,] = ifelse(delta_ijk[i,] == prob$prob_choice[i], 1, 0) #If the probability matches choice probability, I consider that as j = k, so 1. If probability does not match, it means j != k, so 0.
+  }
+  second_term = delta_ijk - pik #matrix subtraction
+
+  marginal = mat.or.vec(n_i, n_j)
+
+  for (i in 1: nrow(try5)) {
+  marginal[i, ] = prob$prob_choice[i]* second_term[i,] * par[length(par)] 
+  #Why par[length(par)]?The last parameter should be the "quality" coefficient
+  }
+  return(marginal)
+}
+
+#Conmar_fun(cond_par, try5)
+
+```
+
+Exercise 7 Counterfactual simulation
+
+excluding choices where the program is "Others"
+```{r}
+#Q1 
+
+# I think we should use the second model, which is the conditional logit. To explain this I will give an example: For those students choosing majors that "yield better future income" (a program characteristic), if they are told they can no longer choose to study "engineering" in college, they will change their preference to some other program that give them similar income. 
+
+#What I am saying is that limiting options affect and limit the choice characteristics. Thus, studying choice exclusion should use conditional logit, which deals with the effect choice characteristics.  
+
+# Q2
+# Excluding choices with "others" mean that program called "others" should yield no utility for individuals. I can do this by setting those variable utility columns (in the utility matrix in likelihood function) to 0
+
+#First, recall I have made a school-program factor number list. I will use the transformed version later in my function.
+library(stringr)
+
+others_pgm <- name_list %>%
+  filter( str_detect(first_choice_name, "others") == T ) 
+
+others_pgm <- others_pgm[!duplicated( others_pgm$first_choice_name), ] #remove duplicate
+others_pgm <- select(others_pgm, first_choice_name, choice_rev1)
+others_fac_num <- others_pgm$choice_rev1 #This is the vector of the factor number of programs called "Others"
+
+```
+
+
+```{r}
+#Using part of my conditional logit function
+
+Prob_mat <- function(par, cond_choice_rev1, cond_quality, others_fac_num) {
+  choice_rev1 = cond_choice_rev1
+  quality = cond_quality 
+
+  n_i = nrow(data) 
+  n_j = length(unique( choice_rev1 )) #246 choices
+  out = mat.or.vec( n_i,n_j )
+
+  n_jref = n_j - 1 
+
+  out[,1] = 0
+  
+  intercept = par[1:n_jref] 
+  par_qua = par[ (n_jref+1) ]
+
+  for (i in 1:n_i) {
+    out[i,] = par_qua * quality[i] 
+  }
+
+  for (j in 2:n_j) {
+    out[,j] = out[,j] + intercept[ (j-1) ] 
+  }
+
+  prob = exp(out)
+  
+  #Since some of the choices are "Others", for this question, we should set these utilities to 0 here. Remember in conditional logit, we have j-1 intercepts as columns. 
+  #The first column should represent as.number(as.factor (choice)) = 1. That is, if I know "Others" corresponding factor number, I can locate those columns and restrict those column to 0 
+
+  for (u in others_fac_num) {   # I made this "others_fac_num in the previous chunk
+    prob[,u] = 0.00000001       # Prevent dividing 0
+  }
+  
+  prob = sweep(prob, MARGIN=1, FUN="/", STATS=rowSums(prob)) 
+  return(prob)
+}
+
+#Since I don't have conditional logit's estimate, I will show how I am going to do this
+
+#Prob_mat_exclude <- Prob_mat(par, cond_choice_rev1, cond_quality, others_fac_num)
+```
+
+In Q3, I will also show what I am going to do if I have the estimates
+```{r}
+# Q3
+
+Q3_fun <- function(par, try5) {
+  choice_rev1 = try5$choice_rev1
+  quality = try5$quality
+
+  n_i = nrow(try5) 
+  n_j = length(unique( try5$choice_rev1) ) #246 choices
+  out = mat.or.vec( n_i,n_j )
+
+  n_jref = n_j - 1 
+  
+  out[,1] = 0
+  
+  intercept = par[1:n_jref]  #intercept
+  par_qua = par[ (n_jref+1) ] #the score coefficient. In conditional logit, the Beta does not vary by choice 
+
+  for (i in 1:n_i) {
+    out[i,] = par_qua * quality[i] #first deal with quality effect
+  }
+
+  for (j in 2:n_j) {
+    out[,j] = out[,j] + intercept[ (j-1) ] #then I add corresponding intercept to each column
+  }
+  prob = exp(out)
+  prob = sweep(prob, MARGIN=1, FUN="/", STATS=rowSums(prob))
+  return(prob)
+}
+
+# Origin_prob <- Q3_fun(cond_par, try5)
+# Prob_change <- Prob_mat_exclude - Origin_prob    #I think they should be of same dimension
+
+# Prob_change
+
+ 
+```
+
